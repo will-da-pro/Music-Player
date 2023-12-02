@@ -9,49 +9,96 @@ import SwiftUI
 import SwiftData
 import AVFoundation
 
-var audioPlayer: AVAudioPlayer!
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
     @State private var selectedFile: URL?
-    @State var filename = "Filename"
-    @State var showFileChooser = false
-    @State var isPlaying = false
-
+    @State var filename: String = "Filename"
+    @State var showFileChooser: Bool = false
+    @ObservedObject var musicPlayer = MusicPlayer()
+    
     var body: some View {
         @State var showFileChooser = false
-        NavigationSplitView {
+        
+        VStack(spacing: 0) {
             List {
                 ForEach(items) { item in
-                    NavigationLink {
-                        VStack {
-                            Button(action: {
-                                togglePlay(item: item)
-                            }) {
-                                Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
-                                    .scaleEffect(10)
-                                    .frame(width: 120, height: 120)
-                            }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                        }
-                    } label: {
+                    HStack {
                         Text(item.name)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            musicPlayer.togglePlay(item: item)
+                        }) {
+                            Label(musicPlayer.isPlaying && musicPlayer.currentSong == item ? "Pause" : "Play", systemImage: musicPlayer.isPlaying && musicPlayer.currentSong == item ? "pause.fill" : "play.fill")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        
+                        Button(action: {
+                            let index = items.firstIndex(of: item)
+                            deleteItem(index: index!)
+                        }) {
+                            Label("Delete", systemImage: "trash.fill")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+            
+            VStack(spacing: 5) {
+                Text(musicPlayer.currentSong == nil ? items.count == 0 ? "-" : items[0].name : musicPlayer.currentSong!.name)
+                
+                HStack(spacing: 0) {
+                    Button(action: {
+                        
+                    }) {
+                        Label("Backward", systemImage: "gobackward.10")
+                            .frame(width: 40, height: 40)
+                            .scaleEffect(1.5)
                     }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    
+                    Button(action: {
+                        if let item = musicPlayer.currentSong {
+                            musicPlayer.togglePlay(item: item)
+                        } else {
+                            musicPlayer.togglePlay(item: items[0])
+                        }
+                    }) {
+                        Label(musicPlayer.isPlaying ? "Pause" : "Play", systemImage: musicPlayer.isPlaying ? "pause.fill" : "play.fill")
+                            .frame(width: 50, height: 50)
+                            .scaleEffect(3)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    
+                    Button(action: {
+                        
+                    }) {
+                        Label("Forward", systemImage: "goforward.10")
+                            .frame(width: 40, height: 40)
+                            .scaleEffect(1.5)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                }
+                
+                Text(musicPlayer.audioPlayer == nil ? "-" : String(musicPlayer.audioPlayer.currentTime) + " - " + String(musicPlayer.audioPlayer.duration))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(10)
+        }
+        .toolbar {
+            ToolbarItem {
+                Button(action: addItem) {
+                    Label("Add Item", systemImage: "plus")
                 }
             }
-        } detail: {
-            Text("Select an item")
         }
     }
 
@@ -64,34 +111,17 @@ struct ContentView: View {
                 if let fileDir: URL = panel.url {
                     let fileName = fileDir.lastPathComponent
                     let newItem = Item(name: fileName, url: fileDir)
+                    
                     modelContext.insert(newItem)
                 }
             }
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteItem(index: Int) {
         withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
+            modelContext.delete(items[index])
         }
-    }
-    
-    private func togglePlay(item: Item) {
-        let url: URL = item.url
-        if (audioPlayer.url != item.url) {
-            audioPlayer = try! AVAudioPlayer(contentsOf: url)
-        }
-        
-        if !isPlaying {
-            audioPlayer.play()
-        }
-        else {
-            audioPlayer.pause()
-        }
-        
-        isPlaying = !isPlaying
     }
 }
 
